@@ -7,18 +7,24 @@ library(scales)
 data(vancouver_trees)
 
 ui <- fluidPage(
-  titlePanel("Vancouver Forestry App"),
+  titlePanel("Vancouver Trees App"),
+  h5("Discover the pattern of tree planting in Vancouver from a time-sensitive perspective!"),
+  #Offer
+  uiOutput("datasetUrl"),
+  h5(),
   sidebarLayout(
     sidebarPanel(
-
+      width = 0,
       # Feature 1 (ui side): a date range filter can be used to choose data within a certain date range
       dateRangeInput('dateRange',
-        label = 'Date range:',
-        start = as.Date("1989-10-27", "%Y-%m-%d"), end = as.Date("2019-06-16", "%Y-%m-%d")
+        label = 'Date range (from start to end): ',
+        start = as.Date("1989-10-27", "%Y-%m-%d"), end = as.Date("2019-06-16", "%Y-%m-%d"),
+        separator = "to",
+        width = "20%"
       )
     ),
     mainPanel(
-
+      h4("The tree data in your selected range is shown below; choose your preferred view."),
       # Feature 2 (only on ui side): two tabs for users to view the plot and the table separately
       tabsetPanel(
         type = "tabs",
@@ -30,6 +36,7 @@ ui <- fluidPage(
           downloadButton("downloadTable", "Download Table")),
 
         tabPanel("Plot",
+          h5("This plot shows the number of trees in each height within the time range"),
           plotOutput("id_histogram"),
           # Feature 4 (ui side): a download button for users to download the plot
           downloadButton("downloadPlot", "Download Plot"))
@@ -50,10 +57,12 @@ server <- function(input, output){
     vancouver_trees_filtered() %>%
       ggplot(aes(height_range_id)) +
       geom_histogram(binwidth = 1) +
+      # Scale down y-axis
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x), # Set scales to be 10^n
                     labels = trans_format("log10", math_format(10^.x)))
   })
 
+  # Create filename with dates so users can differentiate downloaded files
   file_name_with_date <- reactive({
     paste("vacouver_trees_", paste(input$dateRange, collapse = "_"))
   })
@@ -72,6 +81,7 @@ server <- function(input, output){
     filename = function(){
       paste(file_name_with_date(), ".png")
     },
+    # For plots, use ggsave
     content = function(file) {
       ggsave(file, plot = plot_filtered(), device = "png")
     }
@@ -82,10 +92,19 @@ server <- function(input, output){
     filename = function(){
       paste(file_name_with_date(), ".csv")
     },
+    # for csv files, use write.csv
     content = function(file) {
       write.csv(vancouver_trees_filtered(), file)
     }
   )
+
+  # The source url for vancouver_trees
+  url <- a("vancouver_trees dataset", href="https://opendata.vancouver.ca/explore/dataset/street-trees/information/?disjunctive.species_name&disjunctive.common_name&disjunctive.on_street&disjunctive.neighbourhood_name")
+
+  # Load data url into the ui
+  output$datasetUrl <- renderUI({
+    tagList("For more information on the data soruce, see ", url)
+  })
 }
 
 shinyApp(ui = ui, server = server)
